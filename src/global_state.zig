@@ -6,8 +6,6 @@ pub const global_state = struct {
     pub var input: Input = undefined;
 
     pub var pass_action: sg.PassAction = .{};
-    pub var bind: sg.Bindings = .{};
-    pub var pipe: sg.Pipeline = .{};
 
     pub fn now() f64 {
         const ms = @as(f64, @floatFromInt(st.now())) / 1_000_000_000;

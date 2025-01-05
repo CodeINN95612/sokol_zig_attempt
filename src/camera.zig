@@ -36,7 +36,7 @@ pub const Camera = struct {
     }
 
     pub fn update(self: *Camera, dt: f64) void {
-        const speed = 300.0 * dt;
+        const speed = 20.0 * dt;
 
         var direction = vec3.zero();
 
@@ -72,7 +72,11 @@ pub const Camera = struct {
     }
 
     pub fn on_scroll(self: *Camera, y: f32) void {
-        self.zoom += y * 0.1;
+        if (y > 0) {
+            self.zoom += 0.1;
+        } else {
+            self.zoom -= 0.1;
+        }
 
         //clamp zoom between 0.1 and 10
         self.zoom = @min(@max(self.zoom, 0.1), 10.0);
@@ -85,8 +89,8 @@ pub const Camera = struct {
         const scale_factor = 32.0 * self.zoom;
 
         var view = mat4.identity();
-        view = view.scale(vec3.new(scale_factor, scale_factor, 1));
         view = view.translate(self.position);
+        view = view.scale(vec3.new(scale_factor, scale_factor, 1));
 
         self.view_matrix = view;
     }

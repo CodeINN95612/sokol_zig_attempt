@@ -14,11 +14,15 @@ const shd = @import("shaders/basic.glsl.zig");
 const std = @import("std");
 const mat4 = @import("vendor/math.zig").Mat4;
 const vec3 = @import("vendor/math.zig").Vec3;
+const vec4 = @import("vendor/math.zig").Vec4;
 const Camera = @import("camera.zig").Camera;
+const QuadBatchRenderer = @import("render/quad_batch_render.zig").QuadBatchRenderer;
 
 const AppState = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
     allocator: std.mem.Allocator,
+
+    renderer: QuadBatchRenderer,
 
     camera: Camera,
     last_time: f64,
@@ -47,35 +51,7 @@ export fn init() void {
         .clear_value = .{ .r = 0.05, .g = 0.05, .b = 0.08, .a = 1 },
     };
 
-    global_state.bind.vertex_buffers[0] = sg.makeBuffer(.{
-        .type = .VERTEXBUFFER,
-        .data = sg.asRange(&[_]f32{
-            // positions      colors
-            -0.5, 0.5,  0.5, 1.0, 0.0, 0.0, 1.0,
-            0.5,  0.5,  0.5, 0.0, 1.0, 0.0, 1.0,
-            0.5,  -0.5, 0.5, 0.0, 0.0, 1.0, 1.0,
-            -0.5, -0.5, 0.5, 1.0, 1.0, 0.0, 1.0,
-        }),
-    });
-
-    global_state.bind.index_buffer = sg.makeBuffer(.{
-        .type = .INDEXBUFFER,
-        .data = sg.asRange(&[_]u16{
-            0, 1, 2,
-            0, 2, 3,
-        }),
-    });
-
-    global_state.pipe = sg.makePipeline(.{
-        .shader = sg.makeShader(shd.basicShaderDesc(sg.queryBackend())),
-        .index_type = .UINT16,
-        .layout = init: {
-            var l = sg.VertexLayoutState{};
-            l.attrs[shd.ATTR_basic_position].format = .FLOAT3;
-            l.attrs[shd.ATTR_basic_color0].format = .FLOAT4;
-            break :init l;
-        },
-    });
+    app_state.renderer = QuadBatchRenderer.init(&app_state.allocator, 4096);
 
     stime.setup();
 }
@@ -87,6 +63,8 @@ export fn frame() void {
 
     const start_time = global_state.now();
     const dt = start_time - app_state.last_time;
+
+    print("dt: {d}\n", .{dt});
 
     //update
     {
@@ -102,16 +80,22 @@ export fn frame() void {
     //render
     {
         sg.beginPass(.{ .action = global_state.pass_action, .swapchain = sglue.swapchain() });
+        app_state.renderer.begin(app_state.camera.vp());
 
-        sg.applyPipeline(global_state.pipe);
-        sg.applyBindings(global_state.bind);
+        //draw a grid of gray quads
+        const offset = 2.0;
+        for (0..10) |i| {
+            for (0..10) |j| {
+                const x = @as(f32, @floatFromInt(i)) * offset;
+                const y = @as(f32, @floatFromInt(j)) * offset;
+                app_state.renderer.draw_quad(.{
+                    .position = vec3.new(x, y, 0),
+                    .color = vec4.new(0.5, 0.5, 0.5, 1),
+                });
+            }
+        }
 
-        const vs_params = .{
-            .mvp = app_state.camera.vp_matrix,
-        };
-        sg.applyUniforms(shd.UB_vs_params, sg.asRange(&vs_params));
-
-        sg.draw(0, 6, 1);
+        app_state.renderer.end();
 
         sg.endPass();
         sg.commit();
@@ -120,6 +104,7 @@ export fn frame() void {
     app_state.last_time = start_time;
 }
 
+var last_scroll: f32 = 0.0;
 export fn input(ev: ?*const sapp.Event) void {
     if (ev == null) {
         return;
@@ -144,6 +129,7 @@ export fn input(ev: ?*const sapp.Event) void {
 export fn cleanup() void {
     sg.shutdown();
 
+    app_state.renderer.deinit();
     global_state.input.deinit();
 
     const deinit_status = app_state.gpa.deinit();
