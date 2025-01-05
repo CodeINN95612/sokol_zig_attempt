@@ -1,0 +1,106 @@
+const vec3 = @import("vendor/math.zig").Vec3;
+const mat4 = @import("vendor/math.zig").Mat4;
+const gs = @import("global_state.zig").global_state;
+const Codes = @import("input.zig").Codes;
+
+const sapp = @import("sokol").app;
+
+pub const Camera = struct {
+    width: f32,
+    height: f32,
+    zoom: f32 = 1.0,
+    position: vec3,
+    view_matrix: mat4,
+    projection_matrix: mat4,
+    vp_matrix: mat4,
+
+    pub fn init(width: f32, height: f32, position: vec3) Camera {
+        var camera = Camera{
+            .width = width,
+            .height = height,
+            .position = position,
+            .view_matrix = mat4.identity(),
+            .projection_matrix = mat4.identity(),
+            .vp_matrix = mat4.identity(),
+        };
+        camera.update_view();
+        camera.update_projection();
+        camera.update_vp();
+        return camera;
+    }
+
+    pub fn vp(self: *const Camera) mat4 {
+        return self.vp_matrix;
+    }
+
+    pub fn update(self: *Camera, dt: f32) void {
+        var was_changed = false;
+
+        const speed = 10;
+
+        if (gs.input.is_down(Codes.W)) {
+            self.position.y -= speed;
+            was_changed = true;
+        }
+
+        if (gs.input.is_down(Codes.S)) {
+            self.position.y += speed;
+            was_changed = true;
+        }
+
+        if (gs.input.is_down(Codes.A)) {
+            self.position.x += speed;
+            was_changed = true;
+        }
+
+        if (gs.input.is_down(Codes.D)) {
+            self.position.x -= speed;
+            was_changed = true;
+        }
+
+        if (was_changed) {
+            self.update_view();
+            self.update_vp();
+        }
+
+        _ = dt;
+    }
+
+    pub fn on_resize(self: *Camera, width: f32, height: f32) void {
+        self.width = width;
+        self.height = height;
+        self.update_projection();
+        self.update_vp();
+    }
+
+    pub fn on_scroll(self: *Camera, y: f32) void {
+        self.zoom += y * 0.25;
+
+        //clamp zoom between 0.1 and 10
+        self.zoom = @min(@max(self.zoom, 0.1), 10.0);
+
+        self.update_view();
+        self.update_vp();
+    }
+
+    fn update_view(self: *Camera) void {
+        const scale_factor = 32.0 * self.zoom;
+        const scale_matrix = mat4.scale(vec3.new(scale_factor, scale_factor, 1.0));
+
+        var view_matrix = mat4.translate(self.position);
+        view_matrix = mat4.mul(view_matrix, scale_matrix);
+
+        self.view_matrix = view_matrix;
+    }
+
+    fn update_projection(self: *Camera) void {
+        const w = self.width / 2;
+        const h = self.height / 2;
+        const projection_matrix = mat4.ortho(-w, w, -h, h, -1, 1);
+        self.projection_matrix = projection_matrix;
+    }
+
+    fn update_vp(self: *Camera) void {
+        self.vp_matrix = mat4.mul(self.projection_matrix, self.view_matrix);
+    }
+};

@@ -8,13 +8,18 @@ const sg = sokol.gfx;
 const sapp = sokol.app;
 const sglue = sokol.glue;
 const print = @import("std").debug.print;
-const shd = @import("shaders/quad.glsl.zig");
+const shd = @import("shaders/basic.glsl.zig");
 
 const std = @import("std");
+const mat4 = @import("vendor/math.zig").Mat4;
+const vec3 = @import("vendor/math.zig").Vec3;
+const Camera = @import("camera.zig").Camera;
 
 const AppState = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
     allocator: std.mem.Allocator,
+
+    camera: Camera,
 };
 
 var app_state: AppState = undefined;
@@ -22,6 +27,10 @@ var app_state: AppState = undefined;
 export fn init() void {
     app_state.gpa = std.heap.GeneralPurposeAllocator(.{}){};
     app_state.allocator = app_state.gpa.allocator();
+
+    const width = @as(f32, @floatFromInt(sapp.width()));
+    const height = @as(f32, @floatFromInt(sapp.height()));
+    app_state.camera = Camera.init(width, height, vec3.new(0, 0, -1));
 
     sg.setup(.{
         .environment = sglue.environment(),
@@ -56,12 +65,12 @@ export fn init() void {
     });
 
     global_state.pipe = sg.makePipeline(.{
-        .shader = sg.makeShader(shd.quadShaderDesc(sg.queryBackend())),
+        .shader = sg.makeShader(shd.basicShaderDesc(sg.queryBackend())),
         .index_type = .UINT16,
         .layout = init: {
             var l = sg.VertexLayoutState{};
-            l.attrs[shd.ATTR_quad_position].format = .FLOAT3;
-            l.attrs[shd.ATTR_quad_color0].format = .FLOAT4;
+            l.attrs[shd.ATTR_basic_position].format = .FLOAT3;
+            l.attrs[shd.ATTR_basic_color0].format = .FLOAT4;
             break :init l;
         },
     });
@@ -75,6 +84,7 @@ export fn frame() void {
             sapp.requestQuit();
         }
 
+        app_state.camera.update(0);
         ginput.update();
     }
 
@@ -84,6 +94,19 @@ export fn frame() void {
 
         sg.applyPipeline(global_state.pipe);
         sg.applyBindings(global_state.bind);
+
+        const proj = mat4.ortho(-10, 10, -10, 10, -1, 1);
+        const view = mat4.translate(vec3.new(0, 0, -1));
+
+        const tmp = mat4.mul(proj, view);
+        _ = tmp;
+
+        const vs_params = .{
+            .mvp = app_state.camera.vp(),
+        };
+
+        sg.applyUniforms(shd.UB_vs_params, sg.asRange(&vs_params));
+
         sg.draw(0, 6, 1);
 
         sg.endPass();
@@ -101,7 +124,12 @@ export fn input(ev: ?*const sapp.Event) void {
 
     switch (e.type) {
         .RESIZED => {
-            print("Window resized: {d}x{d}\n", .{ e.window_width, e.window_height });
+            const width = @as(f32, @floatFromInt(e.window_width));
+            const height = @as(f32, @floatFromInt(e.window_height));
+            app_state.camera.on_resize(width, height);
+        },
+        .MOUSE_SCROLL => {
+            app_state.camera.on_scroll(e.scroll_y);
         },
         else => {},
     }

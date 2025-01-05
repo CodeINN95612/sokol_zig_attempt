@@ -27,7 +27,7 @@ if (-not $SkipShaders) {
 
         # Run sokol-shdc.exe command
         Write-Host "Processing: $InputFile"
-        $Command = "sokol-shdc.exe --input `"$InputFile`" --output `"$OutputFile`" --slang hlsl5:glsl430 -f sokol_zig"
+        $Command = "sokol-shdc.exe --input `"$InputFile`" --output `"$OutputFile`" --slang hlsl5:glsl430:metal_macos -f sokol_zig"
         & cmd /c $Command
 
         if ($LASTEXITCODE -ne 0) {
