@@ -7,6 +7,7 @@ const slog = sokol.log;
 const sg = sokol.gfx;
 const sapp = sokol.app;
 const sglue = sokol.glue;
+const stime = sokol.time;
 const print = @import("std").debug.print;
 const shd = @import("shaders/basic.glsl.zig");
 
@@ -20,6 +21,7 @@ const AppState = struct {
     allocator: std.mem.Allocator,
 
     camera: Camera,
+    last_time: f64,
 };
 
 var app_state: AppState = undefined;
@@ -74,9 +76,18 @@ export fn init() void {
             break :init l;
         },
     });
+
+    stime.setup();
 }
 
 export fn frame() void {
+    if (app_state.last_time == 0) {
+        app_state.last_time = global_state.now();
+    }
+
+    const start_time = global_state.now();
+    const dt = start_time - app_state.last_time;
+
     //update
     {
         const ginput = &global_state.input;
@@ -84,7 +95,7 @@ export fn frame() void {
             sapp.requestQuit();
         }
 
-        app_state.camera.update(0);
+        app_state.camera.update(dt);
         ginput.update();
     }
 
@@ -95,16 +106,9 @@ export fn frame() void {
         sg.applyPipeline(global_state.pipe);
         sg.applyBindings(global_state.bind);
 
-        const proj = mat4.ortho(-10, 10, -10, 10, -1, 1);
-        const view = mat4.translate(vec3.new(0, 0, -1));
-
-        const tmp = mat4.mul(proj, view);
-        _ = tmp;
-
         const vs_params = .{
-            .mvp = app_state.camera.vp(),
+            .mvp = app_state.camera.vp_matrix,
         };
-
         sg.applyUniforms(shd.UB_vs_params, sg.asRange(&vs_params));
 
         sg.draw(0, 6, 1);
@@ -112,6 +116,8 @@ export fn frame() void {
         sg.endPass();
         sg.commit();
     }
+
+    app_state.last_time = start_time;
 }
 
 export fn input(ev: ?*const sapp.Event) void {

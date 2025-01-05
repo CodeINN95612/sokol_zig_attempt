@@ -5,6 +5,8 @@ const Codes = @import("input.zig").Codes;
 
 const sapp = @import("sokol").app;
 
+const print = @import("std").debug.print;
+
 pub const Camera = struct {
     width: f32,
     height: f32,
@@ -33,37 +35,33 @@ pub const Camera = struct {
         return self.vp_matrix;
     }
 
-    pub fn update(self: *Camera, dt: f32) void {
-        var was_changed = false;
+    pub fn update(self: *Camera, dt: f64) void {
+        const speed = 300.0 * dt;
 
-        const speed = 10;
+        var direction = vec3.zero();
 
         if (gs.input.is_down(Codes.W)) {
-            self.position.y -= speed;
-            was_changed = true;
+            direction = direction.add(vec3.new(0, -1, 0));
         }
 
         if (gs.input.is_down(Codes.S)) {
-            self.position.y += speed;
-            was_changed = true;
+            direction = direction.add(vec3.new(0, 1, 0));
         }
 
         if (gs.input.is_down(Codes.A)) {
-            self.position.x += speed;
-            was_changed = true;
+            direction = direction.add(vec3.new(1, 0, 0));
         }
 
         if (gs.input.is_down(Codes.D)) {
-            self.position.x -= speed;
-            was_changed = true;
+            direction = direction.add(vec3.new(-1, 0, 0));
         }
 
-        if (was_changed) {
+        if (!direction.eql(vec3.zero())) {
+            direction = direction.norm().scale(@floatCast(speed));
+            self.position = self.position.add(direction);
             self.update_view();
             self.update_vp();
         }
-
-        _ = dt;
     }
 
     pub fn on_resize(self: *Camera, width: f32, height: f32) void {
@@ -74,7 +72,7 @@ pub const Camera = struct {
     }
 
     pub fn on_scroll(self: *Camera, y: f32) void {
-        self.zoom += y * 0.25;
+        self.zoom += y * 0.1;
 
         //clamp zoom between 0.1 and 10
         self.zoom = @min(@max(self.zoom, 0.1), 10.0);
@@ -85,18 +83,18 @@ pub const Camera = struct {
 
     fn update_view(self: *Camera) void {
         const scale_factor = 32.0 * self.zoom;
-        const scale_matrix = mat4.scale(vec3.new(scale_factor, scale_factor, 1.0));
 
-        var view_matrix = mat4.translate(self.position);
-        view_matrix = mat4.mul(view_matrix, scale_matrix);
+        var view = mat4.identity();
+        view = view.scale(vec3.new(scale_factor, scale_factor, 1));
+        view = view.translate(self.position);
 
-        self.view_matrix = view_matrix;
+        self.view_matrix = view;
     }
 
     fn update_projection(self: *Camera) void {
         const w = self.width / 2;
         const h = self.height / 2;
-        const projection_matrix = mat4.ortho(-w, w, -h, h, -1, 1);
+        const projection_matrix = mat4.orthographic(-w, w, -h, h, -1, 1);
         self.projection_matrix = projection_matrix;
     }
 

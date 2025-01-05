@@ -10,6 +10,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const dep_zalgebra = b.dependency("zalgebra", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     const exe = b.addExecutable(.{
         .name = "sokol_zig",
@@ -18,6 +22,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.root_module.addImport("sokol", dep_sokol.module("sokol"));
+    exe.root_module.addImport("zalgebra", dep_zalgebra.module("zalgebra"));
 
     b.installArtifact(exe);
 
