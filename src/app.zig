@@ -104,7 +104,6 @@ export fn frame() void {
     app_state.last_time = start_time;
 }
 
-var last_scroll: f32 = 0.0;
 export fn input(ev: ?*const sapp.Event) void {
     if (ev == null) {
         return;

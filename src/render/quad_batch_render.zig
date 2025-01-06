@@ -2,6 +2,7 @@ const Vertex = @import("vertex.zig").Vertex;
 const sg = @import("sokol").gfx;
 const std = @import("std");
 const shd = @import("../shaders/basic.glsl.zig");
+const vec2 = @import("../vendor/math.zig").Vec2;
 const vec3 = @import("../vendor/math.zig").Vec3;
 const vec4 = @import("../vendor/math.zig").Vec4;
 const mat4 = @import("../vendor/math.zig").Mat4;
@@ -27,6 +28,8 @@ pub const QuadBatchRenderer = struct {
     index_buffer: sg.Buffer,
     shader: sg.Shader,
     pipeline: sg.Pipeline,
+    img0: sg.Image,
+    smp: sg.Sampler,
     vp: mat4,
 
     pub fn init(allocator: *std.mem.Allocator, max_quads: usize) QuadBatchRenderer {
@@ -41,9 +44,27 @@ pub const QuadBatchRenderer = struct {
                 var l = sg.VertexLayoutState{};
                 l.attrs[shd.ATTR_basic_position].format = .FLOAT4;
                 l.attrs[shd.ATTR_basic_color0].format = .FLOAT4;
+                l.attrs[shd.ATTR_basic_v_tex_data].format = .FLOAT4;
                 break :init l;
             },
         });
+
+        const img = sg.makeImage(.{
+            .width = 4,
+            .height = 4,
+            .data = init: {
+                var data = sg.ImageData{};
+                data.subimage[0][0] = sg.asRange(&[4 * 4]u32{
+                    0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
+                    0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
+                    0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
+                    0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
+                });
+                break :init data;
+            },
+        });
+
+        const smp = sg.makeSampler(.{});
 
         var renderer = QuadBatchRenderer{
             .max_quads = max_quads,
@@ -63,6 +84,8 @@ pub const QuadBatchRenderer = struct {
                 vec4.new(0.5, -0.5, 0.0, 1.0),
                 vec4.new(-0.5, -0.5, 0.0, 1.0),
             },
+            .img0 = img,
+            .smp = smp,
             .vp = mat4.identity(),
         };
 
@@ -103,10 +126,10 @@ pub const QuadBatchRenderer = struct {
         transform = transform.scale(qd.scale);
 
         const base_vertex = self.current_quad_count * 4;
-        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.color };
-        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.color };
-        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.color };
-        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.color };
+        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.color, .tex_data = vec4.new(0.0, 0.0, 0.0, 0.0) };
+        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.color, .tex_data = vec4.new(1.0, 0.0, 0.0, 0.0) };
+        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.color, .tex_data = vec4.new(1.0, 1.0, 0.0, 0.0) };
+        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.color, .tex_data = vec4.new(0.0, 1.0, 0.0, 0.0) };
 
         self.current_quad_count += 1;
     }
@@ -121,6 +144,8 @@ pub const QuadBatchRenderer = struct {
         var bindings = sg.Bindings{};
         bindings.vertex_buffers[0] = self.vertex_buffer;
         bindings.index_buffer = self.index_buffer;
+        bindings.images[shd.IMG_tex0] = self.img0;
+        bindings.samplers[shd.SMP_smp] = self.smp;
 
         sg.applyPipeline(self.pipeline);
         sg.applyBindings(bindings);
