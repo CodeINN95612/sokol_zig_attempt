@@ -36,7 +36,7 @@ pub const Camera = struct {
     }
 
     pub fn update(self: *Camera, dt: f64) void {
-        const speed = 20.0 * dt;
+        const speed = 350.0 * dt;
 
         var direction = vec3.zero();
 
@@ -86,7 +86,7 @@ pub const Camera = struct {
     }
 
     fn update_view(self: *Camera) void {
-        const scale_factor = 32.0 * self.zoom;
+        const scale_factor = 1.0 * self.zoom;
 
         var view = mat4.identity();
         view = view.translate(self.position);
@@ -96,9 +96,9 @@ pub const Camera = struct {
     }
 
     fn update_projection(self: *Camera) void {
-        const w = self.width / 2;
-        const h = self.height / 2;
-        const projection_matrix = mat4.orthographic(-w, w, h, -h, -1, 1);
+        //const w = self.width / 2;
+        //const h = self.height / 2;
+        const projection_matrix = mat4.orthographic(0, self.width, self.height, 0, -1, 1);
         self.projection_matrix = projection_matrix;
     }
 

@@ -8,10 +8,10 @@ const vec4 = @import("../vendor/math.zig").Vec4;
 const mat4 = @import("../vendor/math.zig").Mat4;
 
 pub const QuadDescription = struct {
-    position: vec3,
+    position: vec2,
+    size: vec2,
     rotation: f32 = 0.0,
-    scale: vec3 = vec3.new(1.0, 1.0, 1.0),
-    color: vec4 = vec4.new(1.0, 1.0, 1.0, 1.0),
+    tint: vec4 = vec4.new(1.0, 1.0, 1.0, 1.0),
 };
 
 pub const QuadBatchRenderer = struct {
@@ -55,10 +55,10 @@ pub const QuadBatchRenderer = struct {
             .data = init: {
                 var data = sg.ImageData{};
                 data.subimage[0][0] = sg.asRange(&[4 * 4]u32{
-                    0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
-                    0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
-                    0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF, 0xFF000000,
-                    0xFF000000, 0xFFFFFFFF, 0xFF000000, 0xFFFFFFFF,
+                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
                 });
                 break :init data;
             },
@@ -79,10 +79,10 @@ pub const QuadBatchRenderer = struct {
             .shader = shader,
             .pipeline = pipe,
             .quad_vertex_positions = .{
-                vec4.new(-0.5, 0.5, 0.0, 1.0),
-                vec4.new(0.5, 0.5, 0.0, 1.0),
-                vec4.new(0.5, -0.5, 0.0, 1.0),
-                vec4.new(-0.5, -0.5, 0.0, 1.0),
+                vec4.new(0.0, 1.0, 0.0, 1.0),
+                vec4.new(1.0, 1.0, 0.0, 1.0),
+                vec4.new(1.0, 0.0, 0.0, 1.0),
+                vec4.new(0.0, 0.0, 0.0, 1.0),
             },
             .img0 = img,
             .smp = smp,
@@ -120,16 +120,18 @@ pub const QuadBatchRenderer = struct {
             self.flush();
         }
 
+        const tex_id = 0.0;
+
         var transform = mat4.identity();
-        transform = transform.translate(qd.position);
+        transform = transform.translate(qd.position.toVec3(0));
         transform = transform.rotate(qd.rotation, vec3.new(0.0, 0.0, 1.0));
-        transform = transform.scale(qd.scale);
+        transform = transform.scale(qd.size.toVec3(1));
 
         const base_vertex = self.current_quad_count * 4;
-        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.color, .tex_data = vec4.new(0.0, 0.0, 0.0, 0.0) };
-        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.color, .tex_data = vec4.new(1.0, 0.0, 0.0, 0.0) };
-        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.color, .tex_data = vec4.new(1.0, 1.0, 0.0, 0.0) };
-        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.color, .tex_data = vec4.new(0.0, 1.0, 0.0, 0.0) };
+        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.tint, .tex_data = vec4.new(0.0, 0.0, tex_id, 0.0) };
+        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.tint, .tex_data = vec4.new(1.0, 0.0, tex_id, 0.0) };
+        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.tint, .tex_data = vec4.new(1.0, 1.0, tex_id, 0.0) };
+        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.tint, .tex_data = vec4.new(0.0, 1.0, tex_id, 0.0) };
 
         self.current_quad_count += 1;
     }

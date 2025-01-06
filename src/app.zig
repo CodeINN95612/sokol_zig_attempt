@@ -13,6 +13,7 @@ const shd = @import("shaders/basic.glsl.zig");
 
 const std = @import("std");
 const mat4 = @import("vendor/math.zig").Mat4;
+const vec2 = @import("vendor/math.zig").Vec2;
 const vec3 = @import("vendor/math.zig").Vec3;
 const vec4 = @import("vendor/math.zig").Vec4;
 const Camera = @import("camera.zig").Camera;
@@ -83,14 +84,21 @@ export fn frame() void {
         app_state.renderer.begin(app_state.camera.vp());
 
         //draw a grid of gray quads
-        const offset = 2.0;
+        const offset = 1.25;
         for (0..10) |i| {
             for (0..10) |j| {
                 const x = @as(f32, @floatFromInt(i)) * offset;
                 const y = @as(f32, @floatFromInt(j)) * offset;
+
+                var color = vec4.new(0, 0, 0, 1.0);
+                if ((i + j) % 2 == 0) {
+                    color = vec4.new(1, 1, 1, 1.0);
+                }
+
                 app_state.renderer.draw_quad(.{
-                    .position = vec3.new(x, y, 0),
-                    .color = vec4.new(0.5, 0.5, 0.5, 1),
+                    .position = vec2.new(x, y),
+                    .size = vec2.new(100, 100),
+                    .tint = color,
                 });
             }
         }
