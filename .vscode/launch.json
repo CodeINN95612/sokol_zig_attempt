@@ -15,6 +15,13 @@
         "cwd": "${workspaceFolder}",
         "program": "${workspaceFolder}/zig-out/bin/sokol_zig.exe",
         "preLaunchTask": "build-debug-shd"
+      },
+      {
+        "type": "PowerShell",
+        "request": "launch",
+        "name": "Only Shaders",
+        "cwd": "${workspaceFolder}",
+        "script": "${workspaceFolder}/build-shaders.ps1",
       }
     ]
   }
