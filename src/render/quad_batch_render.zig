@@ -6,12 +6,15 @@ const vec2 = @import("../vendor/math.zig").Vec2;
 const vec3 = @import("../vendor/math.zig").Vec3;
 const vec4 = @import("../vendor/math.zig").Vec4;
 const mat4 = @import("../vendor/math.zig").Mat4;
+const zImage = @import("zstbi").Image;
+const zstbi = @import("zstbi");
 
 pub const QuadDescription = struct {
     position: vec2,
     size: vec2,
     rotation: f32 = 0.0,
     tint: vec4 = vec4.new(1.0, 1.0, 1.0, 1.0),
+    tex_id: f32 = 0.0,
 };
 
 pub const QuadBatchRenderer = struct {
@@ -29,6 +32,7 @@ pub const QuadBatchRenderer = struct {
     shader: sg.Shader,
     pipeline: sg.Pipeline,
     img0: sg.Image,
+    img1: sg.Image,
     smp: sg.Sampler,
     vp: mat4,
 
@@ -47,19 +51,35 @@ pub const QuadBatchRenderer = struct {
                 l.attrs[shd.ATTR_basic_v_tex_data].format = .FLOAT4;
                 break :init l;
             },
+            .alpha_to_coverage_enabled = true,
         });
 
-        const img = sg.makeImage(.{
-            .width = 4,
-            .height = 4,
+        const img0 = sg.makeImage(.{
+            .width = 1,
+            .height = 1,
             .data = init: {
                 var data = sg.ImageData{};
-                data.subimage[0][0] = sg.asRange(&[4 * 4]u32{
-                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-                    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+                data.subimage[0][0] = sg.asRange(&[1 * 1]u32{
+                    0xFFFFFFFF,
                 });
+                break :init data;
+            },
+        });
+
+        //Images
+        //zstbi.setFlipVerticallyOnLoad(true);
+        const path = "./res/textures/bb.png";
+        const img1Info = zImage.info(path);
+        var img1Data = zImage.loadFromFile(path, img1Info.num_components) catch unreachable;
+        defer img1Data.deinit();
+
+        const img1 = sg.makeImage(.{
+            .width = @as(i32, @intCast(img1Data.width)),
+            .height = @as(i32, @intCast(img1Data.height)),
+            .pixel_format = .RGBA8,
+            .data = init: {
+                var data = sg.ImageData{};
+                data.subimage[0][0] = sg.asRange(img1Data.data);
                 break :init data;
             },
         });
@@ -79,12 +99,13 @@ pub const QuadBatchRenderer = struct {
             .shader = shader,
             .pipeline = pipe,
             .quad_vertex_positions = .{
-                vec4.new(0.0, 1.0, 0.0, 1.0),
-                vec4.new(1.0, 1.0, 0.0, 1.0),
-                vec4.new(1.0, 0.0, 0.0, 1.0),
-                vec4.new(0.0, 0.0, 0.0, 1.0),
+                vec4.new(-0.5, 0.5, 0.0, 1.0),
+                vec4.new(0.5, 0.5, 0.0, 1.0),
+                vec4.new(0.5, -0.5, 0.0, 1.0),
+                vec4.new(-0.5, -0.5, 0.0, 1.0),
             },
-            .img0 = img,
+            .img0 = img0,
+            .img1 = img1,
             .smp = smp,
             .vp = mat4.identity(),
         };
@@ -120,12 +141,12 @@ pub const QuadBatchRenderer = struct {
             self.flush();
         }
 
-        const tex_id = 0.0;
+        const tex_id = qd.tex_id;
 
         var transform = mat4.identity();
-        transform = transform.translate(qd.position.toVec3(0));
-        transform = transform.rotate(qd.rotation, vec3.new(0.0, 0.0, 1.0));
         transform = transform.scale(qd.size.toVec3(1));
+        transform = transform.rotate(qd.rotation, vec3.new(0.0, 0.0, 1.0));
+        transform = transform.translate(qd.position.toVec3(0));
 
         const base_vertex = self.current_quad_count * 4;
         self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.tint, .tex_data = vec4.new(0.0, 0.0, tex_id, 0.0) };
@@ -147,6 +168,7 @@ pub const QuadBatchRenderer = struct {
         bindings.vertex_buffers[0] = self.vertex_buffer;
         bindings.index_buffer = self.index_buffer;
         bindings.images[shd.IMG_tex0] = self.img0;
+        bindings.images[shd.IMG_tex1] = self.img1;
         bindings.samplers[shd.SMP_smp] = self.smp;
 
         sg.applyPipeline(self.pipeline);

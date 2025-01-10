@@ -41,11 +41,11 @@ pub const Camera = struct {
         var direction = vec3.zero();
 
         if (gs.input.is_down(Codes.W)) {
-            direction = direction.add(vec3.new(0, 1, 0));
+            direction = direction.add(vec3.new(0, -1, 0));
         }
 
         if (gs.input.is_down(Codes.S)) {
-            direction = direction.add(vec3.new(0, -1, 0));
+            direction = direction.add(vec3.new(0, 1, 0));
         }
 
         if (gs.input.is_down(Codes.A)) {
@@ -96,9 +96,9 @@ pub const Camera = struct {
     }
 
     fn update_projection(self: *Camera) void {
-        //const w = self.width / 2;
-        //const h = self.height / 2;
-        const projection_matrix = mat4.orthographic(0, self.width, self.height, 0, -1, 1);
+        const w = self.width / 2;
+        const h = self.height / 2;
+        const projection_matrix = mat4.orthographic(-w, w, -h, h, -1, 1);
         self.projection_matrix = projection_matrix;
     }
 

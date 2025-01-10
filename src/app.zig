@@ -18,6 +18,7 @@ const vec3 = @import("vendor/math.zig").Vec3;
 const vec4 = @import("vendor/math.zig").Vec4;
 const Camera = @import("camera.zig").Camera;
 const QuadBatchRenderer = @import("render/quad_batch_render.zig").QuadBatchRenderer;
+const zstbi = @import("zstbi");
 
 const AppState = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
@@ -52,6 +53,8 @@ export fn init() void {
         .clear_value = .{ .r = 0.05, .g = 0.05, .b = 0.08, .a = 1 },
     };
 
+    zstbi.init(app_state.allocator);
+
     app_state.renderer = QuadBatchRenderer.init(&app_state.allocator, 4096);
 
     stime.setup();
@@ -65,7 +68,7 @@ export fn frame() void {
     const start_time = global_state.now();
     const dt = start_time - app_state.last_time;
 
-    print("dt: {d}\n", .{dt});
+    //print("dt: {d}\n", .{dt});
 
     //update
     {
@@ -84,24 +87,30 @@ export fn frame() void {
         app_state.renderer.begin(app_state.camera.vp());
 
         //draw a grid of gray quads
-        const offset = 1.25;
-        for (0..10) |i| {
-            for (0..10) |j| {
-                const x = @as(f32, @floatFromInt(i)) * offset;
-                const y = @as(f32, @floatFromInt(j)) * offset;
+        // const offset = 0;
+        // for (0..11) |i| {
+        //     for (0..11) |j| {
+        //         const s = 50.0;
+        //         const x = (@as(f32, @floatFromInt(i)) - 5) * s + offset;
+        //         const y = (@as(f32, @floatFromInt(j)) - 5) * s + offset;
 
-                var color = vec4.new(0, 0, 0, 1.0);
-                if ((i + j) % 2 == 0) {
-                    color = vec4.new(1, 1, 1, 1.0);
-                }
+        //         const color = vec4.new(1, 1, 1, 1.0);
+        //         const tex_id: f32 = 1.0;
 
-                app_state.renderer.draw_quad(.{
-                    .position = vec2.new(x, y),
-                    .size = vec2.new(100, 100),
-                    .tint = color,
-                });
-            }
-        }
+        //         app_state.renderer.draw_quad(.{
+        //             .position = vec2.new(x, y),
+        //             .size = vec2.new(s, s),
+        //             .tint = color,
+        //             .tex_id = tex_id,
+        //         });
+        //     }
+        // }
+
+        app_state.renderer.draw_quad(.{
+            .position = vec2.new(0, 0),
+            .size = vec2.new(100, 100),
+            .tex_id = 1.0,
+        });
 
         app_state.renderer.end();
 
@@ -137,6 +146,7 @@ export fn cleanup() void {
     sg.shutdown();
 
     app_state.renderer.deinit();
+    zstbi.deinit();
     global_state.input.deinit();
 
     const deinit_status = app_state.gpa.deinit();

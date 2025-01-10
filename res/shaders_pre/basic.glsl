@@ -22,6 +22,7 @@ void main() {
 
 @fs fs
 layout (binding=0) uniform texture2D tex0;
+layout (binding=1) uniform texture2D tex1;
 layout (binding=0) uniform sampler smp;
 
 in vec4 color;
@@ -33,7 +34,11 @@ out vec4 frag_color;
 void main() {
 
     int tex_id = int(f_tex_id);
+
     vec4 tex_color = texture(sampler2D(tex0, smp), f_uv);
+    switch (tex_id){
+        case 1: tex_color = texture(sampler2D(tex1, smp), f_uv); break;
+    }
 
     frag_color = tex_color * color;
 }
