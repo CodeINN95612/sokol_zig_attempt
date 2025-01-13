@@ -6,14 +6,15 @@ const vec2 = @import("../vendor/math.zig").Vec2;
 const vec3 = @import("../vendor/math.zig").Vec3;
 const vec4 = @import("../vendor/math.zig").Vec4;
 const mat4 = @import("../vendor/math.zig").Mat4;
-const zImage = @import("zstbi").Image;
-const zstbi = @import("zstbi");
+const Texture = @import("texture.zig").Texture;
 
 pub const QuadDescription = struct {
     position: vec2,
     size: vec2,
     rotation: f32 = 0.0,
     tint: vec4 = vec4.new(1.0, 1.0, 1.0, 1.0),
+    uv_min: vec2 = vec2.new(0.0, 0.0),
+    uv_max: vec2 = vec2.new(1.0, 1.0),
     tex_id: f32 = 0.0,
 };
 
@@ -31,12 +32,17 @@ pub const QuadBatchRenderer = struct {
     index_buffer: sg.Buffer,
     shader: sg.Shader,
     pipeline: sg.Pipeline,
-    img0: sg.Image,
-    img1: sg.Image,
     smp: sg.Sampler,
     vp: mat4,
 
-    pub fn init(allocator: *std.mem.Allocator, max_quads: usize) QuadBatchRenderer {
+    textures: struct {
+        white: Texture,
+        white_id: f32 = 0.0,
+        atlas: Texture,
+        atlas_id: f32 = 1.0,
+    },
+
+    pub fn init(allocator: *std.mem.Allocator, max_quads: usize) !QuadBatchRenderer {
         const max_vertices = max_quads * 4;
         const max_indexes = max_quads * 6;
 
@@ -54,35 +60,10 @@ pub const QuadBatchRenderer = struct {
             .alpha_to_coverage_enabled = true,
         });
 
-        const img0 = sg.makeImage(.{
-            .width = 1,
-            .height = 1,
-            .data = init: {
-                var data = sg.ImageData{};
-                data.subimage[0][0] = sg.asRange(&[1 * 1]u32{
-                    0xFFFFFFFF,
-                });
-                break :init data;
-            },
-        });
-
-        //Images
-        //zstbi.setFlipVerticallyOnLoad(true);
-        const path = "./res/textures/bb.png";
-        const img1Info = zImage.info(path);
-        var img1Data = zImage.loadFromFile(path, img1Info.num_components) catch unreachable;
-        defer img1Data.deinit();
-
-        const img1 = sg.makeImage(.{
-            .width = @as(i32, @intCast(img1Data.width)),
-            .height = @as(i32, @intCast(img1Data.height)),
-            .pixel_format = .RGBA8,
-            .data = init: {
-                var data = sg.ImageData{};
-                data.subimage[0][0] = sg.asRange(img1Data.data);
-                break :init data;
-            },
-        });
+        //Textures
+        try Texture.setup(allocator);
+        const white = Texture.init32(&[1]u32{0xFFFFFFFF}, 1, 1);
+        const atlas = try Texture.initFromPath("res/textures/BS.png");
 
         const smp = sg.makeSampler(.{});
 
@@ -104,8 +85,10 @@ pub const QuadBatchRenderer = struct {
                 vec4.new(0.5, -0.5, 0.0, 1.0),
                 vec4.new(-0.5, -0.5, 0.0, 1.0),
             },
-            .img0 = img0,
-            .img1 = img1,
+            .textures = .{
+                .white = white,
+                .atlas = atlas,
+            },
             .smp = smp,
             .vp = mat4.identity(),
         };
@@ -128,6 +111,7 @@ pub const QuadBatchRenderer = struct {
     }
 
     pub fn deinit(self: *QuadBatchRenderer) void {
+        Texture.cleanup();
         self.allocator.free(self.vertex_data);
         self.allocator.free(self.index_data);
     }
@@ -143,16 +127,21 @@ pub const QuadBatchRenderer = struct {
 
         const tex_id = qd.tex_id;
 
+        const tex_data_0 = vec4.new(qd.uv_min.x(), qd.uv_min.y(), tex_id, 0.0);
+        const tex_data_1 = vec4.new(qd.uv_min.x(), qd.uv_max.y(), tex_id, 0.0);
+        const tex_data_2 = vec4.new(qd.uv_max.x(), qd.uv_max.y(), tex_id, 0.0);
+        const tex_data_3 = vec4.new(qd.uv_max.x(), qd.uv_min.y(), tex_id, 0.0);
+
         var transform = mat4.identity();
         transform = transform.scale(qd.size.toVec3(1));
         transform = transform.rotate(qd.rotation, vec3.new(0.0, 0.0, 1.0));
         transform = transform.translate(qd.position.toVec3(0));
 
         const base_vertex = self.current_quad_count * 4;
-        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.tint, .tex_data = vec4.new(0.0, 0.0, tex_id, 0.0) };
-        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.tint, .tex_data = vec4.new(1.0, 0.0, tex_id, 0.0) };
-        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.tint, .tex_data = vec4.new(1.0, 1.0, tex_id, 0.0) };
-        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.tint, .tex_data = vec4.new(0.0, 1.0, tex_id, 0.0) };
+        self.vertex_data[base_vertex + 0] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[0]), .color = qd.tint, .tex_data = tex_data_0 };
+        self.vertex_data[base_vertex + 1] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[1]), .color = qd.tint, .tex_data = tex_data_1 };
+        self.vertex_data[base_vertex + 2] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[2]), .color = qd.tint, .tex_data = tex_data_2 };
+        self.vertex_data[base_vertex + 3] = .{ .position = transform.mulByVec4(self.quad_vertex_positions[3]), .color = qd.tint, .tex_data = tex_data_3 };
 
         self.current_quad_count += 1;
     }
@@ -167,8 +156,8 @@ pub const QuadBatchRenderer = struct {
         var bindings = sg.Bindings{};
         bindings.vertex_buffers[0] = self.vertex_buffer;
         bindings.index_buffer = self.index_buffer;
-        bindings.images[shd.IMG_tex0] = self.img0;
-        bindings.images[shd.IMG_tex1] = self.img1;
+        bindings.images[shd.IMG_tex0] = self.textures.white.binding;
+        bindings.images[shd.IMG_tex1] = self.textures.atlas.binding;
         bindings.samplers[shd.SMP_smp] = self.smp;
 
         sg.applyPipeline(self.pipeline);
