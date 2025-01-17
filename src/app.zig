@@ -1,13 +1,14 @@
 const global_state = @import("global_state.zig").global_state;
 const Codes = @import("input.zig").Codes;
 const Input = @import("input.zig");
+const timing = @import("timing.zig");
+const now = timing.now;
 
 const sokol = @import("sokol");
 const slog = sokol.log;
 const sg = sokol.gfx;
 const sapp = sokol.app;
 const sglue = sokol.glue;
-const stime = sokol.time;
 const print = @import("std").debug.print;
 const shd = @import("shaders/basic.glsl.zig");
 
@@ -66,15 +67,15 @@ export fn init() void {
     app_state.subtextures.red_ball = app_state.renderer.textures.atlas.getSubTexture(0, 0, 16, 16);
     app_state.subtextures.blue_ball = app_state.renderer.textures.atlas.getSubTexture(16, 0, 16, 16);
 
-    stime.setup();
+    timing.setup();
 }
 
 export fn frame() void {
     if (app_state.last_time == 0) {
-        app_state.last_time = global_state.now();
+        app_state.last_time = now();
     }
 
-    const start_time = global_state.now();
+    const start_time = now();
     const dt = start_time - app_state.last_time;
 
     //print("dt: {d}\n", .{dt});
