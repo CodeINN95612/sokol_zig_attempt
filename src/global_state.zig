@@ -1,10 +1,7 @@
 const sg = @import("sokol").gfx;
 const st = @import("sokol").time;
-const Input = @import("input.zig").Input;
 
 pub const global_state = struct {
-    pub var input: Input = undefined;
-
     pub var pass_action: sg.PassAction = .{};
 
     pub fn now() f64 {

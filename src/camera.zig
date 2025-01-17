@@ -1,7 +1,7 @@
 const vec3 = @import("vendor/math.zig").Vec3;
 const mat4 = @import("vendor/math.zig").Mat4;
-const gs = @import("global_state.zig").global_state;
 const Codes = @import("input.zig").Codes;
+const Input = @import("input.zig");
 
 const sapp = @import("sokol").app;
 
@@ -40,19 +40,19 @@ pub const Camera = struct {
 
         var direction = vec3.zero();
 
-        if (gs.input.is_down(Codes.W)) {
+        if (Input.is_down(Codes.W)) {
             direction = direction.add(vec3.new(0, -1, 0));
         }
 
-        if (gs.input.is_down(Codes.S)) {
+        if (Input.is_down(Codes.S)) {
             direction = direction.add(vec3.new(0, 1, 0));
         }
 
-        if (gs.input.is_down(Codes.A)) {
+        if (Input.is_down(Codes.A)) {
             direction = direction.add(vec3.new(1, 0, 0));
         }
 
-        if (gs.input.is_down(Codes.D)) {
+        if (Input.is_down(Codes.D)) {
             direction = direction.add(vec3.new(-1, 0, 0));
         }
 

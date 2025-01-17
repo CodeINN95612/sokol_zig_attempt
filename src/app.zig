@@ -1,6 +1,6 @@
 const global_state = @import("global_state.zig").global_state;
 const Codes = @import("input.zig").Codes;
-const Input = @import("input.zig").Input;
+const Input = @import("input.zig");
 
 const sokol = @import("sokol");
 const slog = sokol.log;
@@ -50,7 +50,9 @@ export fn init() void {
         .logger = .{ .func = slog.func },
     });
 
-    global_state.input = Input.init(app_state.allocator);
+    Input.setup(&app_state.allocator) catch {
+        @panic("Failed to setup Input");
+    };
 
     global_state.pass_action.colors[0] = .{
         .load_action = .CLEAR,
@@ -79,13 +81,12 @@ export fn frame() void {
 
     //update
     {
-        const ginput = &global_state.input;
-        if (ginput.was_pressed(Codes.Escape)) {
+        if (Input.was_pressed(Codes.Escape)) {
             sapp.requestQuit();
         }
 
         app_state.camera.update(dt);
-        ginput.update();
+        Input.update();
     }
 
     //render
@@ -138,7 +139,7 @@ export fn input(ev: ?*const sapp.Event) void {
     }
     const e = ev.?;
 
-    global_state.input.on_event(e);
+    Input.on_event(e);
 
     switch (e.type) {
         .RESIZED => {
@@ -157,7 +158,7 @@ export fn cleanup() void {
     sg.shutdown();
 
     app_state.renderer.deinit();
-    global_state.input.deinit();
+    Input.shutdown();
 
     const deinit_status = app_state.gpa.deinit();
     if (deinit_status == .leak) @panic("TEST FAIL");
